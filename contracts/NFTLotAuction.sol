@@ -268,7 +268,10 @@ contract NFTLotAuction {
     }
 
     /// @notice Allows an auction.consumer to "consume" an order, once the auction is settled
-    /// @dev this should be used by the contract minting the NFTs, to know how many NFTs an order has "won"
+    ///         Usually this would be called by the contract minting the NFTs, after the bidder
+    ///         (which should be `requester`) asks for their order to be consumed
+    ///         Something like:
+    ///         User -> MintingContract.mint -> NFTLotAuction.consume (which returns the amount of tokens to mint)
     /// @param auctionId the auction Id
     /// @param orderId the order id
     /// @param requester the address claiming to be the order creator
