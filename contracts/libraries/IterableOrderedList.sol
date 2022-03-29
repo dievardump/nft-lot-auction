@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-/// @title GasWarKiller
+/// @title IterableOrderedList
 /// @author Simon Fremaux (@dievardump)
 
 library IterableOrderedList {
@@ -52,7 +52,8 @@ library IterableOrderedList {
         OrderPosition memory tempPosition;
         // insert as first element
         if (afterPosition == zero) {
-            // first ever element to be inserted
+            // if the element after zero is zero, the list is empty
+            // so we place this element between zero and zero
             if (self.nextMap[zero] == zero) {
                 nextId = zero;
                 prevId = zero;
@@ -77,20 +78,45 @@ library IterableOrderedList {
                 }
             }
         } else {
-            tempPosition = getPosition(self, afterPosition, true, false);
-            // for some weird reason, it is possible that afterPosition was badly calculated
-            // so just in case, let's find the right previous by going up in the list
-            while (value > tempPosition.value) {
-                tempPosition = getPosition(
-                    self,
-                    tempPosition.prev,
-                    true,
-                    false
-                );
+            // get the given position
+            tempPosition = getPosition(self, afterPosition, true, true);
+
+            // first make sure the given afterPosition has not been removed
+            // between the time when the tx was made and its inclusion in the chain
+            if (tempPosition.next == zero && tempPosition.prev == zero) {
+                // @TODO: what to do if tempPosition was removed?!
             }
 
-            prevId = tempPosition.id;
-            nextId = self.nextMap[prevId];
+            // then let's make sure we didn't get the position wrong
+            // we might have an item that should be higher in rank than afterPosition
+            if (value > tempPosition.value) {
+                while (value > tempPosition.value) {
+                    tempPosition = getPosition(
+                        self,
+                        tempPosition.prev,
+                        true,
+                        false
+                    );
+                }
+
+                prevId = tempPosition.id;
+                nextId = self.nextMap[prevId];
+            } else {
+                // else make sure the given position is the good one
+
+                // first set the value to position our new item after afterPosition
+                prevId = afterPosition;
+                nextId = tempPosition.next;
+
+                // then try to go down the list to find where we actually belong
+                tempPosition = getPosition(self, nextId, false, true);
+                while (tempPosition.value >= value) {
+                    prevId = nextId;
+                    nextId = tempPosition.next;
+                    // we don't need prev here, since we already have it
+                    tempPosition = getPosition(self, nextId, false, true);
+                }
+            }
         }
 
         // here we should have the right nextId and prevId to place our order

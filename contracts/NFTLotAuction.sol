@@ -59,7 +59,7 @@ contract NFTLotAuction {
         bytes32 lastValidOrderId; // this in case we have several orders with same value
     }
 
-    /// @notice Allows to create an auction for a lot(masSupply) of NFTs
+    /// @notice Allows to create an auction for a lot(maxSupply) of NFTs
     /// @param maxSupply how many NFTs in the lot
     /// @param minValuePerItem the minimum bid value
     /// @param maxAmountPerBid the maximum items people can ask for in a bid
@@ -103,22 +103,143 @@ contract NFTLotAuction {
     }
 
     /// @notice  this allows to place an order for a given auction
-    function placeOrders(
+    // function placeOrders(
+    //     uint256 auctionId,
+    //     uint96[] memory values,
+    //     uint96[] memory amounts,
+    //     // this needs to be calculated before the call to this method
+    //     // using the view `findPosition(auctionId, value)`
+    //     bytes32[] memory afterPositions
+    // ) external payable {
+    //     Auction memory auction = auctions[auctionId];
+    //     require(auction.deadline >= block.timestamp, '!AUCTION_ENDED!');
+
+    //     require(
+    //         values.length == amounts.length &&
+    //             afterPositions.length == values.length,
+    //         '!LENGTH_MISMATCH!'
+    //     );
+
+    //     address sender = msg.sender;
+    //     uint64 userId = _findOrCreateUser(sender);
+
+    //     EnumerableSet.Bytes32Set storage userBids = userBidsPerAuction[sender][
+    //         auctionId
+    //     ];
+
+    //     IterableOrderedList.List storage list = auctionBids[auctionId];
+
+    //     // some auctions only allow one bid per user.
+    //     require(
+    //         auction.uniqBid == false ||
+    //             (userBids.length() == 0 && values.length == 1),
+    //         '!ONLY_ONE_BID!'
+    //     );
+
+    //     uint256 total;
+    //     bytes32 orderId;
+    //     for (uint256 i; i < values.length; i++) {
+    //         require(values[i] > 0 && amounts[i] > 0, '!NO_ZERO_VALUES!');
+    //         require(values[i] >= auction.minValuePerItem, '!WRONG_VALUE!');
+
+    //         total += uint256(values[i] * amounts[i]);
+    //         orderId = IterableOrderedList.encodeOrder(
+    //             userId,
+    //             amounts[i],
+    //             values[i]
+    //         );
+
+    //         // ensure a user doesn't create the same bid again
+    //         require(userBids.add(orderId), '!BID_EXISTS!');
+
+    //         // insert afterPosition
+    //         list.insertAfter(orderId, afterPositions[i]);
+    //     }
+
+    //     // make sure the bids are backed by value
+    //     require(total > 0 && msg.value == total, '!WRONG_VALUE!');
+    // }
+
+    // / @notice This allows a user to add value to orders they already made
+    // /         This allows to increase precedent orders instead of redoing new
+    // function addToOrders(
+    //     uint256 auctionId,
+    //     bytes32[] memory orderIds,
+    //     uint96[] memory valuesToAdd,
+    //     // this needs to be calculated before the call to this method
+    //     // using the view `findPosition(auctionId, value)`
+    //     bytes32[] memory afterPositions
+    // ) external payable {
+    //     Auction memory auction = auctions[auctionId];
+    //     require(auction.deadline >= block.timestamp, '!AUCTION_ENDED!');
+    //     require(auction.canIncrease, '!NO_INCREASE!');
+
+    //     require(
+    //         orderIds.length == valuesToAdd.length &&
+    //             orderIds.length == afterPositions.length,
+    //         '!LENGTH_MISMATCH!'
+    //     );
+
+    //     address sender = msg.sender;
+    //     uint64 userId = _findOrCreateUser(sender);
+
+    //     EnumerableSet.Bytes32Set storage userBids = userBidsPerAuction[sender][
+    //         auctionId
+    //     ];
+
+    //     IterableOrderedList.List storage list = auctionBids[auctionId];
+
+    //     uint256 total;
+    //     bytes32 orderId;
+    //     uint96 oldAmount;
+    //     uint96 oldValue;
+    //     for (uint256 i; i < valuesToAdd.length; i++) {
+    //         require(valuesToAdd[i] > 0, '!NO_ZERO_VALUES!');
+
+    //         // remove order from the user list
+    //         // remove returns true only if the element existed; this saves a check
+    //         require(userBids.remove(orderIds[i]), '!UNKNOWN_ORDER!');
+
+    //         // get old order value and amount
+    //         (, oldAmount, oldValue) = IterableOrderedList.decodeOrder(
+    //             orderIds[i]
+    //         );
+
+    //         // we need to ensure the value sent is sent for each item of the order
+    //         total += uint256(valuesToAdd[i] * oldAmount);
+
+    //         // remove old order
+    //         list.remove(orderIds[i]);
+
+    //         // create new orderId
+    //         orderId = IterableOrderedList.encodeOrder(
+    //             userId,
+    //             oldAmount,
+    //             oldValue + valuesToAdd[i]
+    //         );
+
+    //         // ensure a user doesn't create the same bid again
+    //         require(userBids.add(orderId), '!BID_EXISTS!');
+
+    //         // insert afterPosition
+    //         list.insertAfter(orderId, afterPositions[i]);
+    //     }
+
+    //     // make sure the bids increases are backed by value
+    //     require(total > 0 && msg.value == total, '!WRONG_VALUE!');
+    // }
+
+    /// @notice  this allows to place an order for a given auction
+    function placeOrder(
         uint256 auctionId,
-        uint96[] memory values,
-        uint96[] memory amounts,
+        uint96 value,
+        uint96 amount,
         // this needs to be calculated before the call to this method
         // using the view `findPosition(auctionId, value)`
-        bytes32[] memory afterPositions
+        bytes32 afterPosition
     ) external payable {
         Auction memory auction = auctions[auctionId];
         require(auction.deadline >= block.timestamp, '!AUCTION_ENDED!');
-
-        require(
-            values.length == amounts.length &&
-                afterPositions.length == values.length,
-            '!LENGTH_MISMATCH!'
-        );
 
         address sender = msg.sender;
         uint64 userId = _findOrCreateUser(sender);
@@ -131,54 +252,43 @@ contract NFTLotAuction {
 
         // some auctions only allow one bid per user.
         require(
-            auction.uniqBid == false ||
-                (userBids.length() == 0 && values.length == 1),
+            auction.uniqBid == false || userBids.length() == 0,
             '!ONLY_ONE_BID!'
         );
 
-        uint256 total;
-        bytes32 orderId;
-        for (uint256 i; i < values.length; i++) {
-            require(values[i] > 0 && amounts[i] > 0, '!NO_ZERO_VALUES!');
-            require(values[i] >= auction.minValuePerItem, '!WRONG_VALUE!');
+        require(value > 0 && amount > 0, '!NO_ZERO_VALUES!');
+        require(
+            value >= auction.minValuePerItem &&
+                msg.value == uint256(value * amount),
+            '!WRONG_VALUE!'
+        );
 
-            total += uint256(values[i] * amounts[i]);
-            orderId = IterableOrderedList.encodeOrder(
-                userId,
-                amounts[i],
-                values[i]
-            );
+        bytes32 orderId = IterableOrderedList.encodeOrder(
+            userId,
+            amount,
+            value
+        );
 
-            // ensure a user doesn't create the same bid again
-            require(userBids.add(orderId), '!BID_EXISTS!');
+        // ensures a user doesn't create the same bid again
+        require(userBids.add(orderId), '!BID_EXISTS!');
 
-            // insert afterPosition
-            list.insertAfter(orderId, afterPositions[i]);
-        }
-
-        // make sure the bids are backed by value
-        require(total > 0 && msg.value == total, '!WRONG_VALUE!');
+        // insert afterPosition
+        list.insertAfter(orderId, afterPosition);
     }
 
     /// @notice This allows a user to add value to orders they already made
-    ///         This allows to increase precendent orders instead of redoing new
-    function addToOrders(
+    ///         This allows to increase precedent orders instead of redoing new
+    function addToOrder(
         uint256 auctionId,
-        bytes32[] memory orderIds,
-        uint96[] memory valuesToAdd,
+        bytes32 orderId,
+        uint96 valueToAdd,
         // this needs to be calculated before the call to this method
         // using the view `findPosition(auctionId, value)`
-        bytes32[] memory afterPositions
+        bytes32 afterPosition
     ) external payable {
         Auction memory auction = auctions[auctionId];
         require(auction.deadline >= block.timestamp, '!AUCTION_ENDED!');
         require(auction.canIncrease, '!NO_INCREASE!');
-
-        require(
-            orderIds.length == valuesToAdd.length &&
-                orderIds.length == afterPositions.length,
-            '!LENGTH_MISMATCH!'
-        );
 
         address sender = msg.sender;
         uint64 userId = _findOrCreateUser(sender);
@@ -189,44 +299,33 @@ contract NFTLotAuction {
 
         IterableOrderedList.List storage list = auctionBids[auctionId];
 
-        uint256 total;
-        bytes32 orderId;
-        uint96 oldAmount;
-        uint96 oldValue;
-        for (uint256 i; i < valuesToAdd.length; i++) {
-            require(valuesToAdd[i] > 0, '!NO_ZERO_VALUES!');
+        // make sure the bid increase are backed by value
+        require(valueToAdd > 0 && msg.value == valueToAdd, '!WRONG_VALUE!');
 
-            // remove order from the user list
-            // remove returns true only if the element existed; this saves a check
-            require(userBids.remove(orderIds[i]), '!UNKNOWN_ORDER!');
+        // remove order from the user list
+        // remove returns true only if the element existed; this saves a check
+        require(userBids.remove(orderId), '!UNKNOWN_ORDER!');
 
-            // get old order value and amount
-            (, oldAmount, oldValue) = IterableOrderedList.decodeOrder(
-                orderIds[i]
-            );
+        // get old order value and amount
+        (, uint96 oldAmount, uint96 oldValue) = IterableOrderedList.decodeOrder(
+            orderId
+        );
 
-            // we need to ensure the value sent is sent for each item of the order
-            total += uint256(valuesToAdd[i] * oldAmount);
+        // remove old order
+        list.remove(orderId);
 
-            // remove old order
-            list.remove(orderIds[i]);
+        // create new orderId
+        orderId = IterableOrderedList.encodeOrder(
+            userId,
+            oldAmount,
+            oldValue + valueToAdd
+        );
 
-            // create new orderId
-            orderId = IterableOrderedList.encodeOrder(
-                userId,
-                oldAmount,
-                oldValue + valuesToAdd[i]
-            );
+        // ensure this new order id didn't already exist
+        require(userBids.add(orderId), '!BID_EXISTS!');
 
-            // ensure a user doesn't create the same bid again
-            require(userBids.add(orderId), '!BID_EXISTS!');
-
-            // insert afterPosition
-            list.insertAfter(orderId, afterPositions[i]);
-        }
-
-        // make sure the bids increases are backed by value
-        require(total > 0 && msg.value == total, '!WRONG_VALUE!');
+        // insert afterPosition
+        list.insertAfter(orderId, afterPosition);
     }
 
     /// @notice Helpers that allows to find the position of an order (by its value) for a given auction
@@ -243,44 +342,37 @@ contract NFTLotAuction {
 
         IterableOrderedList.List storage list = auctionBids[auctionId];
 
-        bytes32 zero;
-        bytes32 first = list.nextMap[zero];
-
-        // this means the list is empty because zero <-> zero
-        if (first == zero) {
-            return zero;
-        }
-
-        // we start with the first element
+        // we start with zero
         IterableOrderedList.OrderPosition memory selected = list.getPosition(
-            first,
+            bytes32(0),
             false,
             true
         );
 
-        // and we find the first element with a value lt current (can also be the current one - or it can go to zero)
-        while (value <= selected.value) {
-            selected = list.getPosition(selected.next, false, true);
-        }
+        // and we select the next, and the next and the next
+        // until our value is greater than the selected item
+        do {
+            selected = list.getPosition(selected.next, true, true);
+        } while (value <= selected.value);
 
-        // and we return the id preceeding the selected one
-        return list.prevMap[selected.id];
+        // then we have to come just before this item
+        return selected.prev;
     }
 
     /// @notice Allows an auction.consumer to "consume" an order, once the auction is settled
     ///         Usually this would be called by the contract minting the NFTs, after the bidder
-    ///         (which should be `requester`) asks for their order to be consumed
+    ///         (which should be `operator`) asks for their order to be consumed
     ///         Something like:
     ///         User -> MintingContract.mint -> NFTLotAuction.consume (which returns the amount of tokens to mint)
     /// @param auctionId the auction Id
     /// @param orderId the order id
-    /// @param requester the address claiming to be the order creator
+    /// @param operator the address claiming to be the order creator
     /// @param recipient the address that should get the value of the bid
     /// @return itemsReceived the number of items corresponding to this order
     function consumeOrder(
         uint256 auctionId,
         bytes32 orderId,
-        address requester,
+        address operator,
         address recipient
     ) external returns (uint256 itemsReceived) {
         require(
@@ -304,9 +396,9 @@ contract NFTLotAuction {
 
         address bidder = userById(bidderId);
 
-        // verify order is from requester
+        // verify order is from operator
         require(
-            bidder == requester && requester != address(0),
+            bidder == operator && operator != address(0),
             '!WRONG_ADDRESS!'
         );
 
@@ -382,8 +474,8 @@ contract NFTLotAuction {
 
         // save accumulation, because it's possible we didn't sell everything or that accumulation
         // is a bit more than maxSupply.
-        // if the last order is valid but has too many amount, we will have to reimburse the difference
-        // (accumulation - maxSupply) at the time the bid is consumed
+        // for example if the last bid is valid but its full amount can not be fully fulfilled,
+        // we will have to refund the difference (accumulation - maxSupply) at the time the bid is consumed
         auction.accumulation = accumulation;
         auction.lastValidOrderId = lastValidOrderId;
 
@@ -397,8 +489,10 @@ contract NFTLotAuction {
         bytes32 nextOrderId = list.nextMap[lastValidOrderId];
         while (nextOrderId != zero) {
             (, , value) = IterableOrderedList.decodeOrder(nextOrderId);
+            // if the value is the same as the bottom value
             if (value == bottomValue) {
                 temp = nextOrderId;
+                // invalidate the order by setting next to 0
                 list.nextMap[nextOrderId] = zero;
                 nextOrderId = temp;
             } else {
@@ -412,7 +506,9 @@ contract NFTLotAuction {
 
     /// @notice Helps to find the last valid order going into an auction lot
     /// @param auctionId the auction to find the "bottom"
-    /// @return lastOrderId the last valid order id, bottomValue the bottom value and accumulation: how many NFTs fit in the order
+    /// @return lastOrderId the last valid order id
+    /// @return bottomValue the bottom value
+    /// @return accumulation how many NFTs fit in the order
     function findAuctionBottom(uint256 auctionId)
         public
         view
